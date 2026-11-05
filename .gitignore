@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Env / secrets
+.env
+*.env.local
+
+# OS
+.DS_Store
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+override.tf
+override.tf.json
+
+# Kubeconfigs that might get dumped locally
+kubeconfig*.yaml
+kind-kubeconfig*
+
+# Helm
+infra/helm/**/charts/
+infra/helm/**/*.tgz
