@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hoa-app.fullname" . }}
+  labels:
+    {{- include "hoa-app.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "hoa-app.selectorLabels" . | nindent 4 }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: 8000

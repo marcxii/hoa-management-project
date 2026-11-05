@@ -1,0 +1,9 @@
+apiVersion: v2
+name: hoa-app
+description: >-
+  HOA management API, one release per tenant namespace. The same chart is
+  installed once per tenant with different values — only tenant.id and
+  ingress.host change; everything else is shared chart logic.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

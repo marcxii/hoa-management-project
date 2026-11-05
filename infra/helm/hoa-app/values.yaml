@@ -1,0 +1,62 @@
+# Defaults shared by every tenant. Per-tenant overrides (tenant.id,
+# tenant.name, ingress.host) live in infra/helm/hoa-app/tenants/*.yaml and
+# are the ONLY things that should differ between releases.
+
+tenant:
+  id: ""   # REQUIRED per tenant — a UUID. The app refuses to start without it.
+  name: "" # REQUIRED per tenant — used in resource names/labels, e.g. "sunset-ridge"
+
+image:
+  repository: hoa-app
+  tag: local
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  port: 8000
+
+ingress:
+  enabled: true
+  className: nginx
+  host: "" # REQUIRED per tenant, e.g. sunset-ridge.hoa.local
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# The one shared Postgres instance (deployed separately — see
+# infra/postgres/ — not by this chart). Same for every tenant; only the
+# session-level tenant_id differs per request, not the connection target.
+database:
+  host: postgres.hoa-platform.svc.cluster.local
+  port: 5432
+  name: hoa
+
+# Dev-grade: plaintext values become a Kubernetes Secret. On EKS, swap this
+# whole block for an ExternalSecret and these three keys never appear in
+# git — nothing else in the chart needs to change.
+secrets:
+  appPassword: ""
+  migratorPassword: ""
+  jwtSecret: ""
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+networkPolicy:
+  enabled: true
+
+resourceQuota:
+  enabled: true
+  requestsCpu: "1"
+  requestsMemory: 1Gi
+  limitsCpu: "2"
+  limitsMemory: 2Gi

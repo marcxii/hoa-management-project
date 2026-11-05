@@ -1,0 +1,46 @@
+# Runs `alembic upgrade head` as hoa_migrator before the Deployment rolls.
+# hook-delete-policy removes the previous attempt before a new one starts
+# (so re-running `helm upgrade` doesn't collide with a stale completed Job)
+# and cleans up on success, leaving one Job behind if it ever fails so
+# `kubectl logs` can show why.
+#
+# MIGRATOR_DATABASE_URL is set inline here (not via envFrom secretRef on
+# templates/secret.yaml) because pre-install hooks run BEFORE this release's
+# regular resources exist — the Secret wouldn't be there yet for this Job to
+# reference. That means this password is a plaintext env value instead of a
+# secretKeyRef indirection — no worse than the rest of this dev setup (every
+# credential here already lives in plaintext in tenants/*.yaml, swapped for
+# an ExternalSecret in a real deployment), just one more place it shows up.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "hoa-app.fullname" . }}-migrate
+  labels:
+    {{- include "hoa-app.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        {{- include "hoa-app.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["alembic", "upgrade", "head"]
+          env:
+            - name: MIGRATOR_DATABASE_URL
+              value: "postgresql+asyncpg://hoa_migrator:{{ .Values.secrets.migratorPassword }}@{{ .Values.database.host }}:{{ .Values.database.port }}/{{ .Values.database.name }}"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi

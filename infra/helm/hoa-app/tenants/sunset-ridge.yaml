@@ -1,0 +1,17 @@
+# One file per tenant — this is also what infra/argocd/tenants/ points the
+# ApplicationSet at in Phase 3. Adding a tenant to the platform means adding
+# a file like this one; nothing else changes.
+tenant:
+  id: "11111111-1111-1111-1111-111111111111"
+  name: sunset-ridge
+
+ingress:
+  host: sunset-ridge.hoa.local
+
+# Dev-only plaintext — matches infra/postgres/secret.yaml's hoa_app/hoa_migrator
+# passwords and docker-compose.yml's JWT_SECRET. Real deployments source
+# these from a proper secret store instead (see values.yaml's comment).
+secrets:
+  appPassword: app_dev_password
+  migratorPassword: migrator_dev_password
+  jwtSecret: dev-secret-change-me

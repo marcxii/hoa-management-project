@@ -1,0 +1,26 @@
+# Mounted into the Postgres container at /docker-entrypoint-initdb.d/init.sh,
+# same mechanism docker-compose uses locally. Content must stay in sync with
+# infra/postgres/init.sh (there's no templating here — this is plain
+# manifests, not a Helm chart, since Postgres is shared infra, not a
+# per-tenant resource).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: hoa-platform
+data:
+  init.sh: |
+    #!/bin/bash
+    set -euo pipefail
+
+    : "${HOA_MIGRATOR_PASSWORD:?HOA_MIGRATOR_PASSWORD must be set}"
+    : "${HOA_APP_PASSWORD:?HOA_APP_PASSWORD must be set}"
+
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+      CREATE ROLE hoa_migrator LOGIN PASSWORD '${HOA_MIGRATOR_PASSWORD}';
+      CREATE ROLE hoa_app LOGIN PASSWORD '${HOA_APP_PASSWORD}';
+
+      GRANT CONNECT ON DATABASE "$POSTGRES_DB" TO hoa_migrator, hoa_app;
+      GRANT CREATE, USAGE ON SCHEMA public TO hoa_migrator;
+      GRANT USAGE ON SCHEMA public TO hoa_app;
+    EOSQL

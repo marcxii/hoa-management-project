@@ -1,0 +1,7 @@
+# The one shared Postgres instance lives here, deliberately separate from
+# any tenant's namespace — it's platform infra, not any single HOA's blast
+# radius.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hoa-platform

@@ -1,0 +1,46 @@
+{{- include "hoa-app.validateTenant" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hoa-app.fullname" . }}
+  labels:
+    {{- include "hoa-app.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "hoa-app.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "hoa-app.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: hoa-app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8000
+          env:
+            # Not secret — this is what makes this release "tenant X's app."
+            - name: TENANT_ID
+              value: {{ .Values.tenant.id | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ include "hoa-app.fullname" . }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15

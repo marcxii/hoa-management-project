@@ -1,0 +1,16 @@
+{{- if .Values.resourceQuota.enabled }}
+# Caps how much of the cluster one tenant's namespace can consume — a noisy
+# or buggy tenant can't starve the others out of CPU/memory.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ include "hoa-app.fullname" . }}
+  labels:
+    {{- include "hoa-app.labels" . | nindent 4 }}
+spec:
+  hard:
+    requests.cpu: {{ .Values.resourceQuota.requestsCpu | quote }}
+    requests.memory: {{ .Values.resourceQuota.requestsMemory | quote }}
+    limits.cpu: {{ .Values.resourceQuota.limitsCpu | quote }}
+    limits.memory: {{ .Values.resourceQuota.limitsMemory | quote }}
+{{- end }}
