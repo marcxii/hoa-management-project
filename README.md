@@ -85,3 +85,4 @@ query*, and rejects writes tagged with the wrong tenant.
 
 See `docs/architecture.md` for the tenancy model and `docs/runbook.md` for
 cluster setup, adding a tenant, and teardown.
+
