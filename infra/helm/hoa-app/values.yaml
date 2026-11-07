@@ -7,8 +7,8 @@ tenant:
   name: "" # REQUIRED per tenant — used in resource names/labels, e.g. "sunset-ridge"
 
 image:
-  repository: hoa-app
-  tag: local
+  repository: ghcr.io/marcxii/hoa-management-project/hoa-app
+  tag: "04095273f4e454f08e80be3623dcdb47724ed819"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
