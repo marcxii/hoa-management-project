@@ -1,0 +1,11 @@
+tenant:
+  id: "33333333-3333-3333-3333-333333333333"
+  name: pinecrest
+
+ingress:
+  host: pinecrest.hoa.local
+
+secrets:
+  appPassword: app_dev_password
+  migratorPassword: migrator_dev_password
+  jwtSecret: dev-secret-change-me
