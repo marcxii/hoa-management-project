@@ -1,0 +1,41 @@
+# Adding a tenant to the platform means adding one file to
+# infra/helm/hoa-app/tenants/ and committing it — nothing else. This
+# ApplicationSet watches that directory and stamps out one Application per
+# file: its own namespace (auto-created), its own Helm release of the same
+# chart used by every other tenant, with that file as the values override.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: hoa-tenants
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/marcxii/hoa-management-project.git
+        revision: main
+        files:
+          - path: "infra/helm/hoa-app/tenants/*.yaml"
+  template:
+    metadata:
+      name: "hoa-{{tenant.name}}"
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/marcxii/hoa-management-project.git
+        targetRevision: main
+        path: infra/helm/hoa-app
+        helm:
+          # Built from tenant.name rather than any git-generator path
+          # metadata — simpler and unambiguous as long as the filename
+          # matches tenant.name, which is a convention this repo controls.
+          valueFiles:
+            - "tenants/{{tenant.name}}.yaml"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{tenant.name}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

@@ -1,0 +1,28 @@
+# The one thing a human applies manually to bootstrap everything else:
+#   kubectl apply -f infra/argocd/bootstrap/root-app.yaml
+#
+# This "app of apps" watches infra/argocd/ (non-recursively, so it doesn't
+# try to manage this very file) and applies whatever Application/
+# ApplicationSet manifests live there — currently the tenant ApplicationSet
+# and the shared-Postgres Application. From this point on, adding a tenant
+# or changing platform infra is a git commit, never a kubectl command.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hoa-root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/marcxii/hoa-management-project.git
+    targetRevision: main
+    path: infra/argocd
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
