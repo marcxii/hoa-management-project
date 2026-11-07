@@ -75,8 +75,13 @@ query*, and rejects writes tagged with the wrong tenant.
 - [x] FastAPI app: properties/units/residents, dues/invoices/payments,
       maintenance work orders — JWT auth, role-based access (admin /
       board_member / resident), RLS-backed tenant isolation
-- [ ] Local `kind` cluster + Helm chart
-- [ ] ArgoCD + ApplicationSet GitOps
+- [x] Local `kind` cluster + Helm chart — namespace-per-tenant, NetworkPolicy,
+      ResourceQuota, verified live (see `docs/runbook.md`)
+- [x] ArgoCD + ApplicationSet GitOps — adding a tenant is one file + a git
+      push, no `kubectl`/`helm` (see `docs/architecture.md`)
 - [ ] CI (GitHub Actions)
-- [ ] Observability (Prometheus/Grafana), NetworkPolicies, quotas
-- [ ] EKS (Terraform written, applied only for live demos)
+- [ ] Observability (Prometheus/Grafana), structured logging
+- [ ] EKS (Terraform written, applied only for live demos — real AWS cost)
+
+See `docs/architecture.md` for the tenancy model and `docs/runbook.md` for
+cluster setup, adding a tenant, and teardown.
