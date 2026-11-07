@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hoa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      MIGRATOR_DATABASE_URL: postgresql+asyncpg://hoa_migrator:migrator_ci_password@localhost:5432/hoa
+      TEST_DATABASE_URL: postgresql+asyncpg://hoa_app:app_ci_password@localhost:5432/hoa
+      TEST_MIGRATOR_DATABASE_URL: postgresql+asyncpg://hoa_migrator:migrator_ci_password@localhost:5432/hoa
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Bootstrap Postgres roles
+        # GitHub Actions `services:` doesn't support mounting an
+        # initdb.d script, so this replicates infra/postgres/init.sh by
+        # hand against the service container that's already up.
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d hoa -v ON_ERROR_STOP=1 <<'SQL'
+            CREATE ROLE hoa_migrator LOGIN PASSWORD 'migrator_ci_password';
+            CREATE ROLE hoa_app LOGIN PASSWORD 'app_ci_password';
+            GRANT CONNECT ON DATABASE hoa TO hoa_migrator, hoa_app;
+            GRANT CREATE, USAGE ON SCHEMA public TO hoa_migrator;
+            GRANT USAGE ON SCHEMA public TO hoa_app;
+          SQL
+
+      - name: Install dependencies
+        working-directory: app
+        run: uv sync --group dev
+
+      - name: Lint
+        working-directory: app
+        run: uv run ruff check src tests
+
+      - name: Run migrations
+        working-directory: app
+        run: uv run alembic upgrade head
+
+      - name: Test
+        working-directory: app
+        run: uv run pytest
+
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+
+      - name: Lint chart against every tenant's values
+        run: |
+          for f in infra/helm/hoa-app/tenants/*.yaml; do
+            echo "::group::helm lint ($f)"
+            helm lint infra/helm/hoa-app -f "$f"
+            echo "::endgroup::"
+          done
+
+      - name: Render templates (catches broken templating early)
+        run: |
+          for f in infra/helm/hoa-app/tenants/*.yaml; do
+            name=$(basename "$f" .yaml)
+            helm template "$name" infra/helm/hoa-app -f "$f" --namespace "$name" > /dev/null
+          done
+
+  build-and-push:
+    needs: [test, helm]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: app
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/hoa-app:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/hoa-app:latest
+
+      - name: Bump the deployed image tag (GitOps "bump and commit")
+        # Every tenant shares one image version — this is the one place
+        # that changes, and ArgoCD picks it up on its next sync, same as
+        # any other git change.
+        run: |
+          sed -i \
+            -e "s|repository: .*|repository: ghcr.io/${{ github.repository }}/hoa-app|" \
+            -e "s|tag: .*|tag: \"${{ github.sha }}\"|" \
+            infra/helm/hoa-app/values.yaml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infra/helm/hoa-app/values.yaml
+          git diff --cached --quiet || git commit -m "ci: deploy hoa-app:${{ github.sha }} [skip ci]"
+          git push
